@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard,
-  Package,
-  Newspaper,
-  Image as ImageIcon,
-  Settings,
-  MessageSquare,
-  LogOut,
   Globe,
+  Image as ImageIcon,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  Newspaper,
+  Package,
+  Settings,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+
+import { requestAdmin } from "@/lib/admin-api";
 
 const navItems = [
   { href: "/admin/dashboard", icon: LayoutDashboard, label: "控制台" },
@@ -26,16 +27,15 @@ const navItems = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const supabase = createClient();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await requestAdmin("/api/admin/logout", { method: "POST" });
     router.push("/admin/login");
+    router.refresh();
   };
 
   return (
     <aside className="w-56 bg-gray-900 text-gray-300 flex flex-col flex-shrink-0">
-      {/* Logo */}
       <div className="p-4 border-b border-gray-700">
         <div className="flex items-center space-x-2">
           <div className="w-7 h-7 bg-blue-600 rounded flex items-center justify-center">
@@ -48,11 +48,9 @@ export default function AdminSidebar() {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive =
-            pathname === item.href || pathname.startsWith(item.href + "/");
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}
@@ -70,7 +68,6 @@ export default function AdminSidebar() {
         })}
       </nav>
 
-      {/* Footer */}
       <div className="p-3 border-t border-gray-700 space-y-1">
         <a
           href="/"

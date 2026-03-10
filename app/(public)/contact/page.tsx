@@ -1,7 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
-import ContactForm from "@/components/public/ContactForm";
-import { Phone, Mail, MapPin, Clock } from "lucide-react";
 import type { Metadata } from "next";
+import { Clock, Mail, MapPin, Phone } from "lucide-react";
+
+import ContactForm from "@/components/public/ContactForm";
+import { getSettingsMap } from "@/lib/cms-data";
 
 export const metadata: Metadata = {
   title: "联系我们",
@@ -11,15 +12,7 @@ export const metadata: Metadata = {
 export const revalidate = 3600;
 
 export default async function ContactPage() {
-  const supabase = await createClient();
-  const { data: settings } = await supabase
-    .from("site_settings")
-    .select("key,value");
-
-  const settingsMap = (settings ?? []).reduce(
-    (acc, s) => ({ ...acc, [s.key]: s.value }),
-    {} as Record<string, string | null>
-  );
+  const settingsMap = await getSettingsMap();
 
   const contactItems = [
     {
@@ -50,19 +43,15 @@ export default async function ContactPage() {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Page Header */}
       <div className="bg-blue-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold">联系我们</h1>
-          <p className="text-blue-200 mt-2">
-            我们的专业团队随时为您提供帮助
-          </p>
+          <p className="text-blue-200 mt-2">我们的专业团队随时为您提供帮助</p>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {/* Contact info */}
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-6">联系方式</h2>
             <div className="space-y-4 mb-8">
@@ -84,16 +73,13 @@ export default async function ContactPage() {
                         {item.value}
                       </a>
                     ) : (
-                      <div className="font-medium text-gray-900">
-                        {item.value}
-                      </div>
+                      <div className="font-medium text-gray-900">{item.value}</div>
                     )}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Map placeholder */}
             <div className="bg-white rounded-lg shadow-sm p-4">
               <h3 className="font-semibold text-gray-900 mb-3">公司位置</h3>
               <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded h-48 flex items-center justify-center">
@@ -107,7 +93,6 @@ export default async function ContactPage() {
             </div>
           </div>
 
-          {/* Contact form */}
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-6">在线留言</h2>
             <div className="bg-white rounded-lg shadow-sm p-6">

@@ -1,7 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
-import type { SiteSetting } from "@/types";
-import Header from "@/components/public/Header";
 import Footer from "@/components/public/Footer";
+import Header from "@/components/public/Header";
+import { getSettingsMap } from "@/lib/cms-data";
 
 export const dynamic = "force-dynamic";
 
@@ -10,16 +9,7 @@ export default async function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: settings } = await supabase
-    .from("site_settings")
-    .select("*")
-    .returns<SiteSetting[]>();
-
-  const settingsMap = (settings || []).reduce(
-    (acc, s) => ({ ...acc, [s.key]: s.value }),
-    {} as Record<string, string | null>
-  );
+  const settingsMap = await getSettingsMap();
 
   return (
     <div className="min-h-screen flex flex-col">

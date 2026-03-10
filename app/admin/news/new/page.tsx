@@ -1,5 +1,6 @@
-import ArticleForm from "@/components/admin/ArticleForm";
 import type { Metadata } from "next";
+
+import ArticleForm from "@/components/admin/ArticleForm";
 
 export const metadata: Metadata = { title: "发布文章 - 后台管理" };
 

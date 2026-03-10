@@ -1,10 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
-import type { Product } from "@/types";
-import Link from "next/link";
-import Image from "next/image";
-import { notFound } from "next/navigation";
 import { ArrowLeft, Phone } from "lucide-react";
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { getProductBySlug, getProducts } from "@/lib/cms-data";
 
 export const revalidate = 60;
 
@@ -12,48 +12,34 @@ type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("products")
-    .select("name, summary")
-    .eq("slug", slug)
-    .single();
+  const product = await getProductBySlug(slug, false);
 
-  if (!data) return { title: "产品未找到" };
+  if (!product) return { title: "产品未找到" };
   return {
-    title: data.name,
-    description: data.summary ?? undefined,
+    title: product.name,
+    description: product.summary ?? undefined,
   };
 }
 
 export default async function ProductDetailPage({ params }: Props) {
   const { slug } = await params;
-  const supabase = await createClient();
-
-  const { data: product } = await supabase
-    .from("products")
-    .select("*, category:product_categories(id,name,slug)")
-    .eq("slug", slug)
-    .eq("is_published", true)
-    .single<Product>();
+  const product = await getProductBySlug(slug, true);
 
   if (!product) notFound();
 
-  // Related products in same category
-  const { data: relatedProducts } = await supabase
-    .from("products")
-    .select("id,name,slug,summary,image_url,category:product_categories(id,name,slug)")
-    .eq("category_id", product.category_id ?? "")
-    .eq("is_published", true)
-    .neq("id", product.id)
-    .limit(3)
-    .returns<Product[]>();
+  const relatedProducts = product.category_id
+    ? await getProducts({
+        categoryId: product.category_id,
+        excludeId: product.id,
+        publishedOnly: true,
+        limit: 3,
+      })
+    : [];
 
   const specs = product.specifications as Record<string, string> | null;
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Breadcrumb */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <nav className="flex items-center space-x-2 text-sm text-gray-500">
@@ -79,7 +65,6 @@ export default async function ProductDetailPage({ params }: Props) {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {/* Product image */}
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="h-80 bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center">
               {product.image_url ? (
@@ -96,7 +81,6 @@ export default async function ProductDetailPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Product info */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             {product.category && (
               <Link
@@ -110,12 +94,9 @@ export default async function ProductDetailPage({ params }: Props) {
               {product.name}
             </h1>
             {product.summary && (
-              <p className="text-gray-600 mb-6 leading-relaxed">
-                {product.summary}
-              </p>
+              <p className="text-gray-600 mb-6 leading-relaxed">{product.summary}</p>
             )}
 
-            {/* Specs table */}
             {specs && Object.keys(specs).length > 0 && (
               <div className="mb-6">
                 <h2 className="font-semibold text-gray-900 mb-3">产品规格</h2>
@@ -151,7 +132,6 @@ export default async function ProductDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Description */}
         {product.description && (
           <div className="bg-white rounded-lg shadow-sm p-6 mt-8">
             <h2 className="text-xl font-bold text-gray-900 mb-4">产品详情</h2>
@@ -161,8 +141,7 @@ export default async function ProductDetailPage({ params }: Props) {
           </div>
         )}
 
-        {/* Related Products */}
-        {relatedProducts && relatedProducts.length > 0 && (
+        {relatedProducts.length > 0 && (
           <div className="mt-10">
             <h2 className="text-xl font-bold text-gray-900 mb-5">相关产品</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">

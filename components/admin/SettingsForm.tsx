@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { CheckCircle, Save } from "lucide-react";
+
+import { requestAdmin } from "@/lib/admin-api";
 import type { SiteSetting } from "@/types";
-import { Save, CheckCircle } from "lucide-react";
 
 export default function SettingsForm({
   settings,
@@ -12,47 +13,42 @@ export default function SettingsForm({
 }) {
   const [values, setValues] = useState(
     settings.reduce(
-      (acc, s) => ({ ...acc, [s.key]: s.value ?? "" }),
+      (accumulator, setting) => ({ ...accumulator, [setting.key]: setting.value ?? "" }),
       {} as Record<string, string>
     )
   );
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
 
   const handleChange = (key: string, value: string) => {
-    setValues((prev) => ({ ...prev, [key]: value }));
+    setValues((previous) => ({ ...previous, [key]: value }));
     setSaved(false);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError(null);
 
-    // Update each setting
-    const updates = settings.map((s) =>
-      supabase
-        .from("site_settings")
-        .update({ value: values[s.key] || null })
-        .eq("key", s.key)
-    );
-
-    const results = await Promise.all(updates);
-    const firstError = results.find((r) => r.error)?.error;
-
-    if (firstError) {
-      setError(firstError.message);
-    } else {
+    try {
+      await requestAdmin("/api/admin/site-settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          values: Object.fromEntries(
+            settings.map((setting) => [setting.key, values[setting.key] || null])
+          ),
+        }),
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "保存失败，请稍后重试");
     }
 
     setLoading(false);
   };
 
-  // Group settings by category
   const displayOrder = [
     "site_name",
     "site_tagline",
@@ -68,9 +64,9 @@ export default function SettingsForm({
 
   const orderedSettings = [
     ...displayOrder
-      .map((k) => settings.find((s) => s.key === k))
+      .map((key) => settings.find((setting) => setting.key === key))
       .filter(Boolean),
-    ...settings.filter((s) => !displayOrder.includes(s.key)),
+    ...settings.filter((setting) => !displayOrder.includes(setting.key)),
   ] as SiteSetting[];
 
   const isTextarea = (key: string) =>
@@ -86,7 +82,7 @@ export default function SettingsForm({
           {isTextarea(setting.key) ? (
             <textarea
               value={values[setting.key] ?? ""}
-              onChange={(e) => handleChange(setting.key, e.target.value)}
+              onChange={(event) => handleChange(setting.key, event.target.value)}
               rows={3}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
             />
@@ -94,7 +90,7 @@ export default function SettingsForm({
             <input
               type="text"
               value={values[setting.key] ?? ""}
-              onChange={(e) => handleChange(setting.key, e.target.value)}
+              onChange={(event) => handleChange(setting.key, event.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           )}

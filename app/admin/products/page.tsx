@@ -1,30 +1,17 @@
-import { createClient } from "@/lib/supabase/server";
-import type { Product, ProductCategory } from "@/types";
-import Link from "next/link";
-import { Plus, Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
+
 import DeleteButton from "@/components/admin/DeleteButton";
+import { getProductCategories, getProducts } from "@/lib/cms-data";
 
 export const metadata: Metadata = { title: "产品管理 - 后台管理" };
 
 export default async function AdminProductsPage() {
-  const supabase = await createClient();
-
-  const [categoriesRes, productsRes] = await Promise.all([
-    supabase
-      .from("product_categories")
-      .select("*")
-      .order("sort_order")
-      .returns<ProductCategory[]>(),
-    supabase
-      .from("products")
-      .select("*, category:product_categories(id,name,slug)")
-      .order("sort_order")
-      .returns<Product[]>(),
+  const [categories, products] = await Promise.all([
+    getProductCategories(),
+    getProducts(),
   ]);
-
-  const categories = categoriesRes.data ?? [];
-  const products = productsRes.data ?? [];
 
   return (
     <div>
@@ -39,7 +26,6 @@ export default async function AdminProductsPage() {
         </Link>
       </div>
 
-      {/* Category filter */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -66,9 +52,7 @@ export default async function AdminProductsPage() {
                 products.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="py-3 px-4">
-                      <div className="font-medium text-gray-900">
-                        {product.name}
-                      </div>
+                      <div className="font-medium text-gray-900">{product.name}</div>
                       <div className="text-xs text-gray-400">{product.slug}</div>
                     </td>
                     <td className="py-3 px-4 text-gray-600">
@@ -103,11 +87,7 @@ export default async function AdminProductsPage() {
                           <Pencil size={13} />
                           编辑
                         </Link>
-                        <DeleteButton
-                          id={product.id}
-                          table="products"
-                          label="删除"
-                        />
+                        <DeleteButton id={product.id} table="products" label="删除" />
                       </div>
                     </td>
                   </tr>
@@ -118,18 +98,17 @@ export default async function AdminProductsPage() {
         </div>
       </div>
 
-      {/* Categories section */}
       <div className="mt-8">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">产品分类</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          {categories.map((cat) => (
+          {categories.map((category) => (
             <div
-              key={cat.id}
+              key={category.id}
               className="bg-white rounded-lg shadow-sm p-3 text-center"
             >
-              <div className="font-medium text-sm text-gray-900">{cat.name}</div>
+              <div className="font-medium text-sm text-gray-900">{category.name}</div>
               <div className="text-xs text-gray-400 mt-0.5">
-                {products.filter((p) => p.category?.slug === cat.slug).length} 件产品
+                {products.filter((product) => product.category?.slug === category.slug).length} 件产品
               </div>
             </div>
           ))}

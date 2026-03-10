@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+
+import { requestAdmin } from "@/lib/admin-api";
 import type { Article } from "@/types";
 
 function slugify(text: string) {
   return text
     .toLowerCase()
     .replace(/\s+/g, "-")
-    .replace(/[^\w\u4e00-\u9fa5-]/g, "")
+    .replace(/[^\w\u4e00-\u9fff-]/g, "")
     .replace(/--+/g, "-")
     .slice(0, 80);
 }
@@ -17,7 +18,6 @@ function slugify(text: string) {
 export default function ArticleForm({ article }: { article?: Article }) {
   const isEdit = !!article;
   const router = useRouter();
-  const supabase = createClient();
 
   const [formData, setFormData] = useState({
     title: article?.title ?? "",
@@ -36,20 +36,20 @@ export default function ArticleForm({ article }: { article?: Article }) {
   const [error, setError] = useState<string | null>(null);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value, type } = e.target;
+    const { name, value, type } = event.target;
     const checked =
-      type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
-    setFormData((prev) => ({
-      ...prev,
+      type === "checkbox" ? (event.target as HTMLInputElement).checked : undefined;
+    setFormData((previous) => ({
+      ...previous,
       [name]: type === "checkbox" ? checked : value,
       ...(name === "title" && !isEdit ? { slug: slugify(value) } : {}),
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError(null);
 
@@ -66,24 +66,21 @@ export default function ArticleForm({ article }: { article?: Article }) {
         : null,
     };
 
-    let err;
-    if (isEdit) {
-      const res = await supabase
-        .from("articles")
-        .update(payload)
-        .eq("id", article!.id);
-      err = res.error;
-    } else {
-      const res = await supabase.from("articles").insert(payload);
-      err = res.error;
-    }
-
-    if (err) {
-      setError(err.message);
-      setLoading(false);
-    } else {
+    try {
+      await requestAdmin(
+        isEdit ? `/api/admin/articles/${article.id}` : "/api/admin/articles",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          body: JSON.stringify(payload),
+        }
+      );
       router.push("/admin/news");
       router.refresh();
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error ? submitError.message : "保存失败，请稍后重试"
+      );
+      setLoading(false);
     }
   };
 
@@ -118,9 +115,7 @@ export default function ArticleForm({ article }: { article?: Article }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          摘要
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">摘要</label>
         <textarea
           name="summary"
           value={formData.summary}
@@ -132,9 +127,7 @@ export default function ArticleForm({ article }: { article?: Article }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          正文内容
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">正文内容</label>
         <textarea
           name="content"
           value={formData.content}
@@ -163,9 +156,7 @@ export default function ArticleForm({ article }: { article?: Article }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          发布时间
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">发布时间</label>
         <input
           type="datetime-local"
           name="published_at"

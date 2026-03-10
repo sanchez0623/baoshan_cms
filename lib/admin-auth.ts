@@ -8,6 +8,10 @@ type SessionPayload = {
   exp: number;
 };
 
+const globalForSessionSecret = globalThis as typeof globalThis & {
+  __BAOSHAN_DEV_SESSION_SECRET?: string;
+};
+
 function getSessionSecret() {
   const sessionSecret = process.env.CMS_SESSION_SECRET?.trim();
   if (sessionSecret) return sessionSecret;
@@ -17,17 +21,9 @@ function getSessionSecret() {
   }
 
   return (
-    process.env.DATABASE_URL?.trim() ||
-    [
-      process.env.MYSQL_HOST,
-      process.env.MYSQL_PORT,
-      process.env.MYSQL_USER,
-      process.env.MYSQL_PASSWORD,
-      process.env.MYSQL_DATABASE,
-    ]
-      .filter(Boolean)
-      .join(":") ||
-    "baoshan-cms-dev-secret"
+    process.env.CMS_SESSION_SECRET_DEV?.trim() ||
+    (globalForSessionSecret.__BAOSHAN_DEV_SESSION_SECRET ??=
+      crypto.randomUUID() + crypto.randomUUID())
   );
 }
 

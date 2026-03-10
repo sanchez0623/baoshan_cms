@@ -479,7 +479,7 @@ export async function createArticle(input: ArticleInput) {
   await executeStatement(
     `INSERT INTO articles (
       id, title, slug, summary, content, cover_image_url, is_featured, is_published, published_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.title,

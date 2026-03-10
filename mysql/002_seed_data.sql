@@ -1,6 +1,6 @@
 SET NAMES utf8mb4;
 
--- 默认后台账号仅用于本地初始化演示，请在生产环境改成你自己的邮箱、盐值和密码哈希。
+-- 默认后台账号仅用于本地初始化演示，请在生产环境改成你自己的邮箱、盐值和密码散列值。
 INSERT INTO admin_users (id, email, password_salt, password_hash, display_name)
 VALUES (
   '11111111-1111-1111-1111-111111111111',

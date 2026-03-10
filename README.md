@@ -74,6 +74,8 @@ DATABASE_URL=mysql://root:password@127.0.0.1:3306/baoshan_cms
 CMS_SESSION_SECRET=replace-with-a-long-random-string
 ```
 
+本地开发如果不设置该值，应用会为当前开发进程自动生成一个临时随机 Session Secret。
+
 ### 4. 安装并启动
 
 ```bash

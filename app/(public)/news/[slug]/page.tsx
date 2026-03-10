@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale/zh-CN";
 import { ArrowLeft, Calendar } from "lucide-react";
@@ -15,10 +16,10 @@ type Props = { params: Promise<{ slug: string }> };
 function renderInlineContent(text: string) {
   return text.split(/(\*\*.*?\*\*)/g).map((part, index) => {
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+      return <strong key={`strong-${index}`}>{part.slice(2, -2)}</strong>;
     }
 
-    return part;
+    return <Fragment key={`text-${index}`}>{part}</Fragment>;
   });
 }
 

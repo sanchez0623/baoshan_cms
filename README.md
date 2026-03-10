@@ -68,6 +68,12 @@ cp .env.example .env.local
 DATABASE_URL=mysql://root:password@127.0.0.1:3306/baoshan_cms
 ```
 
+生产环境还必须配置：
+
+```env
+CMS_SESSION_SECRET=replace-with-a-long-random-string
+```
+
 ### 4. 安装并启动
 
 ```bash
@@ -127,7 +133,7 @@ baoshan_cms/
 
 1. 数据库已经执行过 `mysql/001_initial_schema.sql` 和 `mysql/002_seed_data.sql`
 2. 运行环境设置了 `DATABASE_URL`
-3. 可选地设置 `CMS_SESSION_SECRET` 以增强后台会话签名安全性
+3. 必须设置 `CMS_SESSION_SECRET`，避免使用数据库连接信息参与生产会话签名
 
 ## 扩展建议
 

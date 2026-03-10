@@ -12,13 +12,62 @@ export const revalidate = 60;
 
 type Props = { params: Promise<{ slug: string }> };
 
-function escapeHtml(content: string) {
-  return content
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+function renderInlineContent(text: string) {
+  return text.split(/(\*\*.*?\*\*)/g).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+
+    return part;
+  });
+}
+
+function renderArticleContent(content: string) {
+  return content.split("\n\n").map((paragraph, index) => {
+    if (paragraph.startsWith("## ")) {
+      return (
+        <h2 key={`h2-${index}`}>{renderInlineContent(paragraph.slice(3))}</h2>
+      );
+    }
+
+    if (paragraph.startsWith("### ")) {
+      return (
+        <h3 key={`h3-${index}`}>{renderInlineContent(paragraph.slice(4))}</h3>
+      );
+    }
+
+    if (paragraph.startsWith("- ")) {
+      const items = paragraph
+        .split("\n")
+        .map((line) => line.replace(/^-\s*/, ""))
+        .filter(Boolean);
+
+      return (
+        <ul key={`ul-${index}`}>
+          {items.map((item) => (
+            <li key={`${item}-${index}`}>{renderInlineContent(item)}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (/^\d+\./.test(paragraph)) {
+      const items = paragraph
+        .split("\n")
+        .map((line) => line.replace(/^\d+\.\s*/, ""))
+        .filter(Boolean);
+
+      return (
+        <ol key={`ol-${index}`}>
+          {items.map((item) => (
+            <li key={`${item}-${index}`}>{renderInlineContent(item)}</li>
+          ))}
+        </ol>
+      );
+    }
+
+    return <p key={`p-${index}`}>{renderInlineContent(paragraph)}</p>;
+  });
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -44,36 +93,7 @@ export default async function ArticleDetailPage({ params }: Props) {
     limit: 5,
   });
 
-  const formattedContent = (article.content ?? "")
-    .split("\n\n")
-    .map((paragraph) => {
-      const safeParagraph = escapeHtml(paragraph);
-
-      if (safeParagraph.startsWith("## ")) {
-        return `<h2>${safeParagraph.slice(3)}</h2>`;
-      }
-      if (safeParagraph.startsWith("### ")) {
-        return `<h3>${safeParagraph.slice(4)}</h3>`;
-      }
-      if (safeParagraph.startsWith("- ")) {
-        const items = safeParagraph
-          .split("\n")
-          .map((line) => line.replace(/^-\s*/, ""))
-          .filter(Boolean);
-        return `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
-      }
-      if (/^\d+\./.test(safeParagraph)) {
-        const items = safeParagraph
-          .split("\n")
-          .map((line) => line.replace(/^\d+\.\s*/, ""))
-          .filter(Boolean);
-        return `<ol>${items.map((item) => `<li>${item}</li>`).join("")}</ol>`;
-      }
-
-      const withBold = safeParagraph.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-      return `<p>${withBold}</p>`;
-    })
-    .join("\n");
+  const contentBlocks = renderArticleContent(article.content ?? "");
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -123,10 +143,7 @@ export default async function ArticleDetailPage({ params }: Props) {
               </p>
             )}
 
-            <div
-              className="prose text-gray-700"
-              dangerouslySetInnerHTML={{ __html: formattedContent }}
-            />
+            <div className="prose text-gray-700">{contentBlocks}</div>
 
             <div className="mt-8 pt-6 border-t">
               <Link

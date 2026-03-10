@@ -215,6 +215,9 @@ export async function getProducts(options?: {
 }) {
   const clauses: string[] = [];
   const params: StatementValue[] = [];
+  const safeLimit = options?.limit
+    ? Math.max(1, Math.min(options.limit, 50))
+    : null;
 
   if (options?.publishedOnly) {
     clauses.push("p.is_published = 1");
@@ -240,7 +243,10 @@ export async function getProducts(options?: {
   }
 
   const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
-  const limitClause = options?.limit ? `LIMIT ${Math.max(1, Math.min(options.limit, 50))}` : "";
+  const limitClause = safeLimit ? "LIMIT ?" : "";
+  if (safeLimit) {
+    params.push(safeLimit);
+  }
 
   const rows = await queryRows<ProductRow[]>(
     `SELECT
@@ -294,6 +300,9 @@ export async function getArticles(options?: {
 }) {
   const clauses: string[] = [];
   const params: StatementValue[] = [];
+  const safeLimit = options?.limit
+    ? Math.max(1, Math.min(options.limit, 50))
+    : null;
 
   if (options?.publishedOnly) {
     clauses.push("is_published = 1");
@@ -315,7 +324,10 @@ export async function getArticles(options?: {
   }
 
   const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
-  const limitClause = options?.limit ? `LIMIT ${Math.max(1, Math.min(options.limit, 50))}` : "";
+  const limitClause = safeLimit ? "LIMIT ?" : "";
+  if (safeLimit) {
+    params.push(safeLimit);
+  }
 
   const rows = await queryRows<ArticleRow[]>(
     `SELECT id, title, slug, summary, content, cover_image_url, is_featured, is_published, published_at, created_at, updated_at
@@ -340,19 +352,27 @@ export async function getArticleById(id: string) {
 }
 
 export async function getContacts(limit?: number) {
+  const safeLimit = limit ? Math.max(1, Math.min(limit, 100)) : null;
   const rows = await queryRows<ContactRow[]>(
     `SELECT id, name, email, phone, company, message, is_read, created_at
      FROM contact_submissions
      ORDER BY created_at DESC
-     ${limit ? `LIMIT ${Math.max(1, Math.min(limit, 100))}` : ""}`
+     ${safeLimit ? "LIMIT ?" : ""}`,
+    safeLimit ? [safeLimit] : []
   );
   return rows.map(mapContact);
 }
 
-async function countRows(table: "products" | "articles" | "banners" | "contact_submissions", where?: string) {
-  const rows = await queryRows<CountRow[]>(
-    `SELECT COUNT(*) AS total FROM ${table} ${where ? `WHERE ${where}` : ""}`
-  );
+async function countRows(
+  table: "products" | "articles" | "banners" | "contact_submissions",
+  options?: { unreadOnly?: boolean }
+) {
+  const clauses: string[] = [];
+  if (options?.unreadOnly) {
+    clauses.push("is_read = 0");
+  }
+  const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+  const rows = await queryRows<CountRow[]>(`SELECT COUNT(*) AS total FROM ${table} ${whereClause}`);
   return Number(rows[0]?.total ?? 0);
 }
 
@@ -362,7 +382,7 @@ export async function getDashboardStats() {
     countRows("articles"),
     countRows("banners"),
     countRows("contact_submissions"),
-    countRows("contact_submissions", "is_read = 0"),
+    countRows("contact_submissions", { unreadOnly: true }),
   ]);
 
   return {

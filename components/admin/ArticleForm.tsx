@@ -10,7 +10,7 @@ function slugify(text: string) {
   return text
     .toLowerCase()
     .replace(/\s+/g, "-")
-    .replace(/[^\w一-龥-]/g, "")
+    .replace(/[^\p{Script=Han}\w-]/gu, "")
     .replace(/--+/g, "-")
     .slice(0, 80);
 }

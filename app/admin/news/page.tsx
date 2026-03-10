@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import type { Article } from "@/types";
+import { getArticles } from "@/lib/cms-data";
 import Link from "next/link";
 import { Plus, Pencil } from "lucide-react";
 import { format } from "date-fns";
@@ -10,14 +9,7 @@ import DeleteButton from "@/components/admin/DeleteButton";
 export const metadata: Metadata = { title: "新闻管理 - 后台管理" };
 
 export default async function AdminNewsPage() {
-  const supabase = await createClient();
-  const { data: articles } = await supabase
-    .from("articles")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .returns<Article[]>();
-
-  const allArticles = articles ?? [];
+  const allArticles = await getArticles();
 
   return (
     <div>

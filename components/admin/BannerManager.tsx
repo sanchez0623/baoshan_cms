@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
+
+import { requestAdmin } from "@/lib/admin-api";
 import type { Banner } from "@/types";
-import { Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 
 type BannerForm = Omit<Banner, "id" | "created_at" | "updated_at">;
 
@@ -28,8 +29,8 @@ export default function BannerManager({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<BannerForm>(emptyForm);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
 
   const handleEdit = (banner: Banner) => {
     setEditingId(banner.id);
@@ -43,25 +44,32 @@ export default function BannerManager({
       is_active: banner.is_active,
     });
     setShowForm(true);
+    setError(null);
   };
 
   const handleNew = () => {
     setEditingId(null);
     setFormData(emptyForm);
     setShowForm(true);
+    setError(null);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = event.target;
+    setFormData((previous) => ({
+      ...previous,
       [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const refreshList = async () => {
+    router.refresh();
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
+    setError(null);
 
     const payload = {
       title: formData.title,
@@ -73,51 +81,86 @@ export default function BannerManager({
       is_active: formData.is_active,
     };
 
-    if (editingId) {
-      await supabase.from("banners").update(payload).eq("id", editingId);
-    } else {
-      await supabase.from("banners").insert(payload);
+    try {
+      const response = await requestAdmin<{ data: Banner }>(
+        editingId ? `/api/admin/banners/${editingId}` : "/api/admin/banners",
+        {
+          method: editingId ? "PATCH" : "POST",
+          body: JSON.stringify(payload),
+        }
+      );
+
+      setShowForm(false);
+      setEditingId(null);
+      setFormData(emptyForm);
+      setBanners((previous) => {
+        if (!response.data) return previous;
+        const next = editingId
+          ? previous.map((banner) =>
+              banner.id === editingId ? response.data : banner
+            )
+          : [...previous, response.data];
+        return next.sort((left, right) => left.sort_order - right.sort_order);
+      });
+      await refreshList();
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error ? submitError.message : "保存失败，请稍后重试"
+      );
+      setLoading(false);
+      return;
     }
 
-    setShowForm(false);
     setLoading(false);
-    router.refresh();
-
-    // Refresh local state
-    const { data } = await supabase
-      .from("banners")
-      .select("*")
-      .order("sort_order")
-      .returns<Banner[]>();
-    setBanners(data ?? []);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("确定删除此横幅？")) return;
-    await supabase.from("banners").delete().eq("id", id);
-    setBanners((prev) => prev.filter((b) => b.id !== id));
+    try {
+      await requestAdmin(`/api/admin/banners/${id}`, { method: "DELETE" });
+      setBanners((previous) => previous.filter((banner) => banner.id !== id));
+      await refreshList();
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error ? deleteError.message : "删除失败，请稍后重试"
+      );
+    }
   };
 
   const handleToggleActive = async (banner: Banner) => {
-    await supabase
-      .from("banners")
-      .update({ is_active: !banner.is_active })
-      .eq("id", banner.id);
-    setBanners((prev) =>
-      prev.map((b) =>
-        b.id === banner.id ? { ...b, is_active: !b.is_active } : b
-      )
-    );
+    try {
+      const response = await requestAdmin<{ data: Banner }>(
+        `/api/admin/banners/${banner.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            title: banner.title,
+            subtitle: banner.subtitle,
+            image_url: banner.image_url,
+            link_url: banner.link_url,
+            link_text: banner.link_text,
+            sort_order: banner.sort_order,
+            is_active: !banner.is_active,
+          }),
+        }
+      );
+
+      setBanners((previous) =>
+        previous.map((item) => (item.id === banner.id ? response.data : item))
+      );
+      await refreshList();
+    } catch (toggleError) {
+      setError(
+        toggleError instanceof Error ? toggleError.message : "更新状态失败，请稍后重试"
+      );
+    }
   };
 
   return (
     <div>
-      {/* Banner list */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
         <div className="flex items-center justify-between p-4 border-b">
-          <span className="font-medium text-gray-900">
-            共 {banners.length} 个横幅
-          </span>
+          <span className="font-medium text-gray-900">共 {banners.length} 个横幅</span>
           <button
             onClick={handleNew}
             className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
@@ -134,9 +177,7 @@ export default function BannerManager({
           <div className="divide-y">
             {banners.map((banner) => (
               <div key={banner.id} className="flex items-center gap-4 p-4">
-                <div
-                  className="w-20 h-12 bg-gradient-to-r from-blue-200 to-cyan-200 rounded flex-shrink-0 flex items-center justify-center text-xs text-blue-500 overflow-hidden"
-                >
+                <div className="w-20 h-12 bg-gradient-to-r from-blue-200 to-cyan-200 rounded flex-shrink-0 flex items-center justify-center text-xs text-blue-500 overflow-hidden">
                   {banner.image_url && !banner.image_url.startsWith("/") ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -149,17 +190,11 @@ export default function BannerManager({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-gray-900">
-                    {banner.title}
-                  </div>
+                  <div className="font-medium text-sm text-gray-900">{banner.title}</div>
                   {banner.subtitle && (
-                    <div className="text-xs text-gray-400 truncate">
-                      {banner.subtitle}
-                    </div>
+                    <div className="text-xs text-gray-400 truncate">{banner.subtitle}</div>
                   )}
-                  <div className="text-xs text-gray-400">
-                    排序: {banner.sort_order}
-                  </div>
+                  <div className="text-xs text-gray-400">排序: {banner.sort_order}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -171,11 +206,7 @@ export default function BannerManager({
                     }`}
                     title={banner.is_active ? "停用" : "启用"}
                   >
-                    {banner.is_active ? (
-                      <Eye size={15} />
-                    ) : (
-                      <EyeOff size={15} />
-                    )}
+                    {banner.is_active ? <Eye size={15} /> : <EyeOff size={15} />}
                   </button>
                   <button
                     onClick={() => handleEdit(banner)}
@@ -196,7 +227,6 @@ export default function BannerManager({
         )}
       </div>
 
-      {/* Add/Edit form */}
       {showForm && (
         <div className="bg-white rounded-lg shadow-sm p-6 max-w-2xl">
           <h2 className="font-semibold text-gray-900 mb-4">
@@ -265,12 +295,12 @@ export default function BannerManager({
                   name="link_text"
                   value={formData.link_text ?? ""}
                   onChange={handleChange}
-                  placeholder="了解更多"
+                  placeholder="查看产品"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4 items-end">
+            <div className="grid grid-cols-2 gap-4 items-center">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   排序权重
@@ -284,33 +314,36 @@ export default function BannerManager({
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <div className="pb-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    checked={formData.is_active}
-                    onChange={handleChange}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <span className="text-sm font-medium text-gray-700">
-                    启用横幅
-                  </span>
-                </label>
-              </div>
+              <label className="flex items-center gap-2 mt-6 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="is_active"
+                  checked={formData.is_active}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-blue-600"
+                />
+                <span className="text-sm font-medium text-gray-700">启用显示</span>
+              </label>
             </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
             <div className="flex gap-3 pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+                className="bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white font-semibold px-5 py-2 rounded-lg transition-colors"
               >
-                {loading ? "保存中..." : editingId ? "保存修改" : "添加横幅"}
+                {loading ? "保存中..." : editingId ? "保存修改" : "创建横幅"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="border border-gray-300 text-gray-700 hover:bg-gray-50 px-6 py-2 rounded-lg transition-colors"
+                className="border border-gray-300 text-gray-700 hover:bg-gray-50 px-5 py-2 rounded-lg transition-colors"
               >
                 取消
               </button>

@@ -1,20 +1,13 @@
-import { createClient } from "@/lib/supabase/server";
-import type { ContactSubmission } from "@/types";
-import MarkReadButton from "@/components/admin/MarkReadButton";
 import type { Metadata } from "next";
+
+import MarkReadButton from "@/components/admin/MarkReadButton";
+import { getContacts } from "@/lib/cms-data";
 
 export const metadata: Metadata = { title: "留言管理 - 后台管理" };
 
 export default async function AdminContactsPage() {
-  const supabase = await createClient();
-  const { data: contacts } = await supabase
-    .from("contact_submissions")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .returns<ContactSubmission[]>();
-
-  const allContacts = contacts ?? [];
-  const unread = allContacts.filter((c) => !c.is_read).length;
+  const allContacts = await getContacts();
+  const unread = allContacts.filter((contact) => !contact.is_read).length;
 
   return (
     <div>
@@ -46,13 +39,9 @@ export default async function AdminContactsPage() {
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-900">
-                      {contact.name}
-                    </span>
+                    <span className="font-semibold text-gray-900">{contact.name}</span>
                     {contact.company && (
-                      <span className="text-sm text-gray-500">
-                        · {contact.company}
-                      </span>
+                      <span className="text-sm text-gray-500">· {contact.company}</span>
                     )}
                     {!contact.is_read && (
                       <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
@@ -61,17 +50,11 @@ export default async function AdminContactsPage() {
                     )}
                   </div>
                   <div className="text-sm text-gray-500 mt-0.5 space-x-3">
-                    <a
-                      href={`mailto:${contact.email}`}
-                      className="hover:text-blue-700"
-                    >
+                    <a href={`mailto:${contact.email}`} className="hover:text-blue-700">
                       📧 {contact.email}
                     </a>
                     {contact.phone && (
-                      <a
-                        href={`tel:${contact.phone}`}
-                        className="hover:text-blue-700"
-                      >
+                      <a href={`tel:${contact.phone}`} className="hover:text-blue-700">
                         📞 {contact.phone}
                       </a>
                     )}
@@ -81,9 +64,7 @@ export default async function AdminContactsPage() {
                   <span className="text-xs text-gray-400">
                     {new Date(contact.created_at).toLocaleString("zh-CN")}
                   </span>
-                  {!contact.is_read && (
-                    <MarkReadButton id={contact.id} />
-                  )}
+                  {!contact.is_read && <MarkReadButton id={contact.id} />}
                 </div>
               </div>
               <div className="bg-gray-50 rounded p-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">

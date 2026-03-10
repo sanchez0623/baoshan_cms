@@ -1,5 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
+
+import { getSettingsMap } from "@/lib/cms-data";
 
 export const metadata: Metadata = {
   title: "关于我们",
@@ -9,15 +10,7 @@ export const metadata: Metadata = {
 export const revalidate = 3600;
 
 export default async function AboutPage() {
-  const supabase = await createClient();
-  const { data: settings } = await supabase
-    .from("site_settings")
-    .select("key,value");
-
-  const settingsMap = (settings ?? []).reduce(
-    (acc, s) => ({ ...acc, [s.key]: s.value }),
-    {} as Record<string, string | null>
-  );
+  const settingsMap = await getSettingsMap();
 
   const companyName = settingsMap.company_name ?? "宝山光通信科技有限公司";
   const aboutContent =
@@ -59,7 +52,6 @@ export default async function AboutPage() {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Hero */}
       <div className="bg-blue-800 text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold mb-2">关于我们</h1>
@@ -67,9 +59,7 @@ export default async function AboutPage() {
         </div>
       </div>
 
-      {/* About content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Company intro */}
         <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
             <div>
@@ -103,7 +93,6 @@ export default async function AboutPage() {
           </div>
         </div>
 
-        {/* Core values */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
             企业价值观
@@ -122,7 +111,6 @@ export default async function AboutPage() {
           </div>
         </div>
 
-        {/* Development milestones */}
         <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
             发展历程
@@ -152,7 +140,6 @@ export default async function AboutPage() {
           </div>
         </div>
 
-        {/* Certifications */}
         <div className="bg-white rounded-lg shadow-sm p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
             资质认证

@@ -1,98 +1,82 @@
-import { createClient } from "@/lib/supabase/server";
-import type { Article } from "@/types";
-import Link from "next/link";
-import Image from "next/image";
-import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale/zh-CN";
 import { ArrowLeft, Calendar } from "lucide-react";
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { getArticleBySlug, getArticles } from "@/lib/cms-data";
 
 export const revalidate = 60;
 
 type Props = { params: Promise<{ slug: string }> };
 
+function escapeHtml(content: string) {
+  return content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("articles")
-    .select("title, summary")
-    .eq("slug", slug)
-    .single();
+  const article = await getArticleBySlug(slug, false);
 
-  if (!data) return { title: "文章未找到" };
+  if (!article) return { title: "文章未找到" };
   return {
-    title: data.title,
-    description: data.summary ?? undefined,
+    title: article.title,
+    description: article.summary ?? undefined,
   };
 }
 
 export default async function ArticleDetailPage({ params }: Props) {
   const { slug } = await params;
-  const supabase = await createClient();
-
-  const { data: article } = await supabase
-    .from("articles")
-    .select("*")
-    .eq("slug", slug)
-    .eq("is_published", true)
-    .single<Article>();
+  const article = await getArticleBySlug(slug, true);
 
   if (!article) notFound();
 
-  // Recent articles for sidebar
-  const { data: recentArticles } = await supabase
-    .from("articles")
-    .select("id,title,slug,published_at")
-    .eq("is_published", true)
-    .neq("id", article.id)
-    .order("published_at", { ascending: false })
-    .limit(5)
-    .returns<Pick<Article, "id" | "title" | "slug" | "published_at">[]>();
+  const recentArticles = await getArticles({
+    publishedOnly: true,
+    excludeId: article.id,
+    limit: 5,
+  });
 
-  const content = article.content ?? "";
-  // Convert simple markdown-like text to HTML paragraphs
-  const formattedContent = content
+  const formattedContent = (article.content ?? "")
     .split("\n\n")
-    .map((para) => {
-      if (para.startsWith("## ")) {
-        return `<h2>${para.slice(3)}</h2>`;
+    .map((paragraph) => {
+      const safeParagraph = escapeHtml(paragraph);
+
+      if (safeParagraph.startsWith("## ")) {
+        return `<h2>${safeParagraph.slice(3)}</h2>`;
       }
-      if (para.startsWith("### ")) {
-        return `<h3>${para.slice(4)}</h3>`;
+      if (safeParagraph.startsWith("### ")) {
+        return `<h3>${safeParagraph.slice(4)}</h3>`;
       }
-      // Handle bullet lists
-      if (para.includes("\n- ")) {
-        const items = para.split("\n- ").filter(Boolean);
-        const listItems = items
-          .map((item, i) => (i === 0 ? item : `<li>${item}</li>`))
-          .join("");
-        return `<p>${items[0]}</p><ul>${listItems.slice(items[0].length + 9)}</ul>`;
-      }
-      if (para.startsWith("- ")) {
-        const items = para
+      if (safeParagraph.startsWith("- ")) {
+        const items = safeParagraph
           .split("\n")
-          .map((line) => line.replace(/^- /, ""))
+          .map((line) => line.replace(/^-\s*/, ""))
           .filter(Boolean);
-        return `<ul>${items.map((i) => `<li>${i}</li>`).join("")}</ul>`;
+        return `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
       }
-      if (para.match(/^\d+\./)) {
-        const items = para
+      if (/^\d+\./.test(safeParagraph)) {
+        const items = safeParagraph
           .split("\n")
           .map((line) => line.replace(/^\d+\.\s*/, ""))
           .filter(Boolean);
-        return `<ol>${items.map((i) => `<li>${i}</li>`).join("")}</ol>`;
+        return `<ol>${items.map((item) => `<li>${item}</li>`).join("")}</ol>`;
       }
-      // Bold text
-      const withBold = para.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+      const withBold = safeParagraph.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
       return `<p>${withBold}</p>`;
     })
     .join("\n");
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Breadcrumb */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <nav className="flex items-center space-x-2 text-sm text-gray-500">
@@ -107,7 +91,6 @@ export default async function ArticleDetailPage({ params }: Props) {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Main content */}
           <article className="flex-1 bg-white rounded-lg shadow-sm p-6 lg:p-8">
             {article.cover_image_url && (
               <Image
@@ -156,24 +139,22 @@ export default async function ArticleDetailPage({ params }: Props) {
             </div>
           </article>
 
-          {/* Sidebar */}
           <aside className="lg:w-72 flex-shrink-0 space-y-6">
-            {/* Recent articles */}
-            {recentArticles && recentArticles.length > 0 && (
+            {recentArticles.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm p-5">
                 <h3 className="font-semibold text-gray-900 mb-4">近期文章</h3>
                 <ul className="space-y-3">
-                  {recentArticles.map((ra) => (
-                    <li key={ra.id}>
+                  {recentArticles.map((recentArticle) => (
+                    <li key={recentArticle.id}>
                       <Link
-                        href={`/news/${ra.slug}`}
+                        href={`/news/${recentArticle.slug}`}
                         className="text-sm text-gray-700 hover:text-blue-700 transition-colors line-clamp-2"
                       >
-                        {ra.title}
+                        {recentArticle.title}
                       </Link>
-                      {ra.published_at && (
+                      {recentArticle.published_at && (
                         <div className="text-xs text-gray-400 mt-0.5">
-                          {format(new Date(ra.published_at), "yyyy-MM-dd")}
+                          {format(new Date(recentArticle.published_at), "yyyy-MM-dd")}
                         </div>
                       )}
                     </li>
@@ -182,7 +163,6 @@ export default async function ArticleDetailPage({ params }: Props) {
               </div>
             )}
 
-            {/* CTA */}
             <div className="bg-blue-700 text-white rounded-lg p-5">
               <h3 className="font-semibold mb-2">需要了解更多？</h3>
               <p className="text-sm text-blue-200 mb-4">

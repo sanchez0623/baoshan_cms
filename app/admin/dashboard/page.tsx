@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getContacts, getDashboardStats } from "@/lib/cms-data";
 import Link from "next/link";
 import {
   Package,
@@ -13,56 +13,37 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "控制台 - 后台管理" };
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-
-  const [
-    productsRes,
-    articlesRes,
-    bannersRes,
-    contactsRes,
-    unreadContactsRes,
-  ] = await Promise.all([
-    supabase.from("products").select("id", { count: "exact", head: true }),
-    supabase.from("articles").select("id", { count: "exact", head: true }),
-    supabase.from("banners").select("id", { count: "exact", head: true }),
-    supabase
-      .from("contact_submissions")
-      .select("id", { count: "exact", head: true }),
-    supabase
-      .from("contact_submissions")
-      .select("id", { count: "exact", head: true })
-      .eq("is_read", false),
-  ]);
+  const dashboard = await getDashboardStats();
 
   const stats = [
     {
       label: "产品总数",
-      value: productsRes.count ?? 0,
+      value: dashboard.products,
       icon: Package,
       href: "/admin/products",
       color: "bg-blue-100 text-blue-700",
     },
     {
       label: "文章数量",
-      value: articlesRes.count ?? 0,
+      value: dashboard.articles,
       icon: Newspaper,
       href: "/admin/news",
       color: "bg-green-100 text-green-700",
     },
     {
       label: "横幅数量",
-      value: bannersRes.count ?? 0,
+      value: dashboard.banners,
       icon: ImageIcon,
       href: "/admin/banners",
       color: "bg-purple-100 text-purple-700",
     },
     {
       label: "留言总数",
-      value: contactsRes.count ?? 0,
+      value: dashboard.contacts,
       icon: MessageSquare,
       href: "/admin/contacts",
       color: "bg-orange-100 text-orange-700",
-      badge: (unreadContactsRes.count ?? 0) > 0 ? unreadContactsRes.count : null,
+      badge: dashboard.unreadContacts > 0 ? dashboard.unreadContacts : null,
     },
   ];
 
@@ -141,14 +122,9 @@ export default async function DashboardPage() {
 }
 
 async function RecentContacts() {
-  const supabase = await createClient();
-  const { data: contacts } = await supabase
-    .from("contact_submissions")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(5);
+  const contacts = await getContacts(5);
 
-  if (!contacts || contacts.length === 0) {
+  if (contacts.length === 0) {
     return (
       <p className="text-gray-400 text-sm text-center py-4">暂无留言</p>
     );

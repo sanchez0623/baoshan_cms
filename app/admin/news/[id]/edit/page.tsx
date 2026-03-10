@@ -1,8 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
-import type { Article } from "@/types";
-import ArticleForm from "@/components/admin/ArticleForm";
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+
+import ArticleForm from "@/components/admin/ArticleForm";
+import { getArticleById } from "@/lib/cms-data";
 
 export const metadata: Metadata = { title: "编辑文章 - 后台管理" };
 
@@ -12,13 +12,7 @@ export default async function EditArticlePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  const { data: article } = await supabase
-    .from("articles")
-    .select("*")
-    .eq("id", id)
-    .single<Article>();
+  const article = await getArticleById(id);
 
   if (!article) notFound();
 

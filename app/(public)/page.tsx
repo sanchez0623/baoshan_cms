@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import type { Banner, Product, Article } from "@/types";
+import { getArticles, getBanners, getProducts } from "@/lib/cms-data";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, CheckCircle, Phone } from "lucide-react";
@@ -9,36 +8,11 @@ import { zhCN } from "date-fns/locale/zh-CN";
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const supabase = await createClient();
-
-  const [bannersRes, featuredProductsRes, featuredArticlesRes] =
-    await Promise.all([
-      supabase
-        .from("banners")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order")
-        .returns<Banner[]>(),
-      supabase
-        .from("products")
-        .select("*, category:product_categories(id,name,slug)")
-        .eq("is_featured", true)
-        .eq("is_published", true)
-        .order("sort_order")
-        .limit(6)
-        .returns<Product[]>(),
-      supabase
-        .from("articles")
-        .select("*")
-        .eq("is_published", true)
-        .order("published_at", { ascending: false })
-        .limit(3)
-        .returns<Article[]>(),
-    ]);
-
-  const banners = bannersRes.data ?? [];
-  const products = featuredProductsRes.data ?? [];
-  const articles = featuredArticlesRes.data ?? [];
+  const [banners, products, articles] = await Promise.all([
+    getBanners({ activeOnly: true }),
+    getProducts({ publishedOnly: true, featuredOnly: true, limit: 6 }),
+    getArticles({ publishedOnly: true, limit: 3 }),
+  ]);
 
   const advantages = [
     "20年光通信行业专业经验",

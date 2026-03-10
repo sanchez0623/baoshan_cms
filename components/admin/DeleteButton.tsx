@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Trash2 } from "lucide-react";
+
+import { requestAdmin } from "@/lib/admin-api";
 
 export default function DeleteButton({
   id,
@@ -16,14 +17,17 @@ export default function DeleteButton({
 }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   const handleDelete = async () => {
-    if (!confirm(`确定要删除吗？此操作不可撤销。`)) return;
+    if (!confirm("确定要删除吗？此操作不可撤销。")) return;
     setLoading(true);
-    await supabase.from(table).delete().eq("id", id);
-    router.refresh();
-    setLoading(false);
+
+    try {
+      await requestAdmin(`/api/admin/${table}/${id}`, { method: "DELETE" });
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

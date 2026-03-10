@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import type { Product, ProductCategory } from "@/types";
+import { getProductCategories, getProducts } from "@/lib/cms-data";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
@@ -19,24 +18,10 @@ export default async function ProductsPage({
 }) {
   const { category: categorySlug } = await searchParams;
 
-  const supabase = await createClient();
-
-  const [categoriesRes, productsRes] = await Promise.all([
-    supabase
-      .from("product_categories")
-      .select("*")
-      .order("sort_order")
-      .returns<ProductCategory[]>(),
-    supabase
-      .from("products")
-      .select("*, category:product_categories(id,name,slug)")
-      .eq("is_published", true)
-      .order("sort_order")
-      .returns<Product[]>(),
+  const [categories, allProducts] = await Promise.all([
+    getProductCategories(),
+    getProducts({ publishedOnly: true }),
   ]);
-
-  const categories = categoriesRes.data ?? [];
-  const allProducts = productsRes.data ?? [];
 
   const filteredProducts = categorySlug
     ? allProducts.filter((p) => p.category?.slug === categorySlug)

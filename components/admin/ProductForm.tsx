@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+
+import { requestAdmin } from "@/lib/admin-api";
 import type { Product, ProductCategory } from "@/types";
 
 function slugify(text: string) {
@@ -22,7 +23,6 @@ export default function ProductForm({
 }) {
   const isEdit = !!product;
   const router = useRouter();
-  const supabase = createClient();
 
   const [formData, setFormData] = useState({
     name: product?.name ?? "",
@@ -43,22 +43,23 @@ export default function ProductForm({
   const [error, setError] = useState<string | null>(null);
 
   const handleChange = (
-    e: React.ChangeEvent<
+    event: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) => {
-    const { name, value, type } = e.target;
+    const { name, value, type } = event.target;
     const checked =
-      type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
-    setFormData((prev) => ({
-      ...prev,
+      type === "checkbox" ? (event.target as HTMLInputElement).checked : undefined;
+
+    setFormData((previous) => ({
+      ...previous,
       [name]: type === "checkbox" ? checked : value,
       ...(name === "name" && !isEdit ? { slug: slugify(value) } : {}),
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError(null);
 
@@ -84,24 +85,21 @@ export default function ProductForm({
       sort_order: Number(formData.sort_order),
     };
 
-    let err;
-    if (isEdit) {
-      const res = await supabase
-        .from("products")
-        .update(payload)
-        .eq("id", product!.id);
-      err = res.error;
-    } else {
-      const res = await supabase.from("products").insert(payload);
-      err = res.error;
-    }
-
-    if (err) {
-      setError(err.message);
-      setLoading(false);
-    } else {
+    try {
+      await requestAdmin(
+        isEdit ? `/api/admin/products/${product.id}` : "/api/admin/products",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          body: JSON.stringify(payload),
+        }
+      );
       router.push("/admin/products");
       router.refresh();
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error ? submitError.message : "保存失败，请稍后重试"
+      );
+      setLoading(false);
     }
   };
 
@@ -147,9 +145,9 @@ export default function ProductForm({
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">-- 不分类 --</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
             </option>
           ))}
         </select>
@@ -205,7 +203,7 @@ export default function ProductForm({
           value={formData.specifications}
           onChange={handleChange}
           rows={6}
-          placeholder={'{\n  "速率": "10Gbps",\n  "接口": "SFP+"\n}'}
+          placeholder={"{\n  \"速率\": \"10Gbps\",\n  \"接口\": \"SFP+\"\n}"}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
         />
       </div>

@@ -1,122 +1,138 @@
 # 宝山光通信 CMS
 
-光通信行业轻量 CMS 系统，基于 **Next.js 14 + Supabase + Netlify** 构建。
+光通信行业轻量 CMS 系统，基于 **Next.js 16 + MySQL** 构建，包含前台展示、后台管理、留言收集与完整初始化 SQL。
 
 ## 技术架构
 
 | 层级 | 技术栈 |
 |------|--------|
-| 前端框架 | Next.js 14 (App Router, RSC) |
+| 前端框架 | Next.js 16 (App Router, React Server Components) |
 | UI 样式 | Tailwind CSS v4 |
-| 数据库 | Supabase (PostgreSQL) |
-| 认证 | Supabase Auth |
-| 部署 | Netlify |
+| 数据库 | MySQL 8+ / MariaDB 10.6+ |
+| 数据访问 | mysql2 连接池 + 应用内 API |
+| 后台认证 | MySQL 管理员表 + HttpOnly Session Cookie |
 | 语言 | TypeScript |
 
 ## 功能模块
 
 ### 前台页面
-- **首页**：Hero 横幅轮播 + 明星产品 + 新闻资讯 + 企业优势
+- **首页**：Hero 横幅 + 明星产品 + 新闻资讯 + 企业优势
 - **产品中心**：分类筛选 + 产品列表 + 产品详情（含规格表）
-- **新闻资讯**：文章列表 + 文章详情（支持 Markdown 格式）
+- **新闻资讯**：文章列表 + 文章详情（支持基础 Markdown 展示）
 - **关于我们**：公司简介 + 企业价值观 + 发展历程 + 资质认证
 - **联系我们**：联系信息 + 在线留言表单
 
 ### 后台管理（需登录）
-- **控制台**：数据统计概览 + 快捷操作
+- **控制台**：产品 / 文章 / 横幅 / 留言统计概览
 - **产品管理**：CRUD + 分类 + 精选 + 发布状态
 - **新闻管理**：CRUD + 精选 + 发布时间控制
-- **横幅管理**：Hero 横幅的增删改 + 排序 + 启用/停用
+- **横幅管理**：增删改 + 排序 + 启用/停用
 - **留言管理**：查看客户留言 + 标为已读
-- **网站设置**：公司信息、联系方式、ICP 备案等全局配置
+- **网站设置**：公司信息、联系方式、ICP备案等全局配置
 
-## 快速部署
+## 本地启动（只需配置数据库链接）
 
-### 1. 配置 Supabase
+### 1. 创建数据库
 
-1. 在 [supabase.com](https://supabase.com) 创建新项目
-2. 在 SQL Editor 中依次执行：
-   - `supabase/migrations/001_initial_schema.sql`（建表 + RLS 策略）
-   - `supabase/migrations/002_seed_data.sql`（示例数据，可选）
-3. 在 Authentication > Users 中创建管理员账号
-4. 获取 Project URL 和 Anon Key（Settings > API）
+先在你的 MySQL / MariaDB 实例里创建一个空数据库，例如：
 
-### 2. 本地开发
+```sql
+CREATE DATABASE baoshan_cms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+### 2. 导入初始化 SQL
+
+按顺序执行：
 
 ```bash
-# 克隆后安装依赖
-npm install
+mysql -u root -p baoshan_cms < mysql/001_initial_schema.sql
+mysql -u root -p baoshan_cms < mysql/002_seed_data.sql
+```
 
-# 配置环境变量
+导入完成后，默认后台账号为：
+
+- 邮箱：`admin@example.com`
+- 密码：`Admin@123456`
+
+> 建议上线前修改 `mysql/002_seed_data.sql` 中的管理员账号和密码哈希。
+
+### 3. 配置环境变量
+
+```bash
 cp .env.example .env.local
-# 编辑 .env.local，填入 Supabase URL 和 Anon Key
+```
 
-# 启动开发服务器
+然后至少配置：
+
+```env
+DATABASE_URL=mysql://root:password@127.0.0.1:3306/baoshan_cms
+```
+
+### 4. 安装并启动
+
+```bash
+npm install
 npm run dev
 ```
 
-访问 http://localhost:3000 查看前台，http://localhost:3000/admin/login 进入后台。
+访问：
 
-### 3. 部署到 Netlify
+- 前台：`http://localhost:3000`
+- 后台登录：`http://localhost:3000/admin/login`
 
-1. 将代码推送到 GitHub
-2. 在 Netlify 中 "New site from Git" 连接仓库
-3. Build settings 已通过 `netlify.toml` 自动配置
-4. 在 Netlify > Site settings > Environment variables 中添加：
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-5. 触发重新部署
+## 生产构建验证
+
+```bash
+npm run lint
+npm run build
+```
 
 ## 目录结构
 
-```
+```text
 baoshan_cms/
 ├── app/
-│   ├── (public)/           # 前台路由组
-│   │   ├── page.tsx        # 首页
-│   │   ├── products/       # 产品中心
-│   │   ├── news/           # 新闻资讯
-│   │   ├── about/          # 关于我们
-│   │   └── contact/        # 联系我们
-│   ├── admin/              # 后台管理
-│   │   ├── login/          # 登录页
-│   │   ├── dashboard/      # 控制台
-│   │   ├── products/       # 产品管理
-│   │   ├── news/           # 新闻管理
-│   │   ├── banners/        # 横幅管理
-│   │   ├── contacts/       # 留言管理
-│   │   └── settings/       # 网站设置
-│   └── api/contact/        # 留言提交 API
+│   ├── (public)/            # 前台路由组
+│   ├── admin/               # 后台管理路由
+│   └── api/                 # 联系表单与后台管理 API
 ├── components/
-│   ├── public/             # 前台组件（Header, Footer, ContactForm）
-│   └── admin/              # 后台组件（Sidebar, Forms, etc.）
-├── lib/supabase/           # Supabase 客户端配置
-├── types/                  # TypeScript 类型定义
-├── supabase/migrations/    # 数据库迁移脚本
-├── middleware.ts            # 后台路由认证保护
-└── netlify.toml            # Netlify 部署配置
+│   ├── public/              # 前台组件
+│   └── admin/               # 后台组件
+├── lib/
+│   ├── cms-data.ts          # MySQL 查询与写入封装
+│   ├── mysql.ts             # MySQL 连接池
+│   └── admin-auth.ts        # 后台 Session Cookie 认证
+├── mysql/
+│   ├── 001_initial_schema.sql
+│   └── 002_seed_data.sql
+├── types/
+└── middleware.ts            # 后台路由认证保护
 ```
 
-## 数据库表结构
+## 数据表说明
 
 | 表名 | 说明 |
 |------|------|
-| `banners` | Hero 横幅 |
+| `admin_users` | 后台管理员账号 |
+| `banners` | 首页横幅 |
 | `product_categories` | 产品分类 |
-| `products` | 产品（含 JSONB 规格） |
-| `articles` | 新闻/博客文章 |
-| `site_settings` | 网站全局配置（KV） |
+| `products` | 产品信息（JSON 规格参数） |
+| `articles` | 新闻 / 文章 |
+| `site_settings` | 网站全局设置 |
 | `contact_submissions` | 客户留言 |
 
-所有表均启用 Row Level Security (RLS)：
-- 公开数据（产品、文章、横幅、设置）：公众可读
-- 管理员（authenticated 用户）：完全 CRUD 权限
-- 留言表：公众可写入，管理员可读
+## 部署说明
+
+部署时只需要保证：
+
+1. 数据库已经执行过 `mysql/001_initial_schema.sql` 和 `mysql/002_seed_data.sql`
+2. 运行环境设置了 `DATABASE_URL`
+3. 可选地设置 `CMS_SESSION_SECRET` 以增强后台会话签名安全性
 
 ## 扩展建议
 
-- **图片上传**：集成 Supabase Storage 或 Cloudinary
+- **图片上传**：接入对象存储（COS / OSS / S3 / Cloudinary）
 - **富文本编辑器**：集成 TipTap 或 Quill
 - **多语言**：使用 next-intl
 - **SEO 增强**：添加 sitemap.xml、robots.txt
-- **分析统计**：集成 Vercel Analytics 或 Umami
+- **分析统计**：集成 Umami 或 GA4

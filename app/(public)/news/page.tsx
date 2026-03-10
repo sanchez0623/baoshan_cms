@@ -1,10 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
-import type { Article } from "@/types";
-import Link from "next/link";
-import Image from "next/image";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale/zh-CN";
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+
+import { getArticles } from "@/lib/cms-data";
 
 export const metadata: Metadata = {
   title: "新闻资讯",
@@ -14,21 +14,12 @@ export const metadata: Metadata = {
 export const revalidate = 60;
 
 export default async function NewsPage() {
-  const supabase = await createClient();
-  const { data: articles } = await supabase
-    .from("articles")
-    .select("*")
-    .eq("is_published", true)
-    .order("published_at", { ascending: false })
-    .returns<Article[]>();
-
-  const allArticles = articles ?? [];
-  const featured = allArticles.find((a) => a.is_featured);
-  const rest = allArticles.filter((a) => !a.is_featured || a.id !== featured?.id);
+  const allArticles = await getArticles({ publishedOnly: true });
+  const featured = allArticles.find((article) => article.is_featured);
+  const rest = allArticles.filter((article) => article.id !== featured?.id);
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Page Header */}
       <div className="bg-blue-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold">新闻资讯</h1>
@@ -44,7 +35,6 @@ export default async function NewsPage() {
           </div>
         ) : (
           <>
-            {/* Featured article */}
             {featured && (
               <div className="mb-10">
                 <Link
@@ -70,20 +60,16 @@ export default async function NewsPage() {
                     </span>
                     {featured.published_at && (
                       <div className="text-xs text-gray-400 mb-2">
-                        {format(
-                          new Date(featured.published_at),
-                          "yyyy年MM月dd日",
-                          { locale: zhCN }
-                        )}
+                        {format(new Date(featured.published_at), "yyyy年MM月dd日", {
+                          locale: zhCN,
+                        })}
                       </div>
                     )}
                     <h2 className="text-xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors mb-3">
                       {featured.title}
                     </h2>
                     {featured.summary && (
-                      <p className="text-gray-500 line-clamp-3">
-                        {featured.summary}
-                      </p>
+                      <p className="text-gray-500 line-clamp-3">{featured.summary}</p>
                     )}
                     <div className="mt-4 text-blue-600 text-sm font-medium">
                       阅读全文 →
@@ -93,7 +79,6 @@ export default async function NewsPage() {
               </div>
             )}
 
-            {/* Article list */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {rest.map((article) => (
                 <Link
@@ -117,11 +102,9 @@ export default async function NewsPage() {
                   <div className="p-4">
                     {article.published_at && (
                       <div className="text-xs text-gray-400 mb-1">
-                        {format(
-                          new Date(article.published_at),
-                          "yyyy年MM月dd日",
-                          { locale: zhCN }
-                        )}
+                        {format(new Date(article.published_at), "yyyy年MM月dd日", {
+                          locale: zhCN,
+                        })}
                       </div>
                     )}
                     <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors line-clamp-2">

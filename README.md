@@ -6,6 +6,7 @@
 
 | 层级 | 技术栈 |
 |------|--------|
+| 运行环境 | Node.js 20+ |
 | 前端框架 | Next.js 16 (App Router, React Server Components) |
 | UI 样式 | Tailwind CSS v4 |
 | 数据库 | MySQL 8+ / MariaDB 10.6+ |
@@ -77,6 +78,8 @@ CMS_SESSION_SECRET=replace-with-a-long-random-string
 本地开发如果不设置该值，应用会为当前开发进程自动生成一个临时随机 Session Secret。
 
 ### 4. 安装并启动
+
+> 需要 **Node.js >= 20**。可使用 `node -v` 查看当前版本，或通过 `.nvmrc` 配合 `nvm use` 切换。
 
 ```bash
 npm install
